@@ -1,5 +1,6 @@
 #include <iostream>
 #include "game.h"
+#include "update.h"
 
 Game::Game()
 {
@@ -36,25 +37,22 @@ void Game::requestState()
     clientSocket->setBlocking(false);
 }
 
-void Game::recvUpdate()
+std::unique_ptr<Update> Game::recvUpdate()
 {
     uint8_t buf[16] = {0x0};
     size_t bufRecvLen;
     switch (clientSocket->receive(buf, 16, bufRecvLen))
     {
         case sf::Socket::Done:
-            std::cout << "Received update from server;"
-                      << " magic=" << unsigned(buf[0])
-                      << " command=" << unsigned(buf[2])
-                      << " length=" << unsigned(buf[1])
-                      << std::endl;
-            break;
+            return std::unique_ptr<Update>(new Update(buf));
+
         case sf::Socket::Error:
             std::cout << "Error occured reading from socket!" << std::endl;
             window->close();
-            break;
+            return nullptr;
+
         default:
-            break;
+            return nullptr;
     }
 }
 
@@ -74,7 +72,11 @@ void Game::startGame()
 
         window->display();
 
-        this->recvUpdate();
+        std::unique_ptr<Update> update = this->recvUpdate();
+        if (update != nullptr)
+        {
+            this->handleUpdate(std::move(update));
+        }
 
         sf::Event event;
         while (window->pollEvent(event))
@@ -85,6 +87,28 @@ void Game::startGame()
             }
         }
     }
+}
+
+void Game::handleUpdate(std::unique_ptr<Update> update)
+{
+    switch (update->getUpdateId())
+    {
+        case UPD_PLAYER_NEW:
+            this->handleUpdatePlayerNew(std::move(update));
+            break;
+        default:
+            std::cout << "Update Not Implemented:"
+                      << unsigned(update->getUpdateId())
+                      << std::endl;
+            break;
+    }
+}
+
+void Game::handleUpdatePlayerNew(std::unique_ptr<Update> update)
+{
+    std::unique_ptr<Player> player(new Player());
+    player->setPosition(update->getArgument(0), update->getArgument(1));
+    this->addPlayer(std::move(player));
 }
 
 void Game::addPlayer(std::unique_ptr<Player> player)

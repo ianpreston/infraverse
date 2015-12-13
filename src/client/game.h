@@ -7,6 +7,7 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Network.hpp>
 #include "player.h"
+#include "update.h"
 
 class Game
 {
@@ -17,7 +18,10 @@ class Game
 
     void connect();
     void requestState();
-    void recvUpdate();
+    std::unique_ptr<Update> recvUpdate();
+
+    void handleUpdate(std::unique_ptr<Update> update);
+    void handleUpdatePlayerNew(std::unique_ptr<Update> update);
 
     public:
     Game();
